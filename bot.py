@@ -2,7 +2,7 @@ import os
 from keep_alive import keep_alive
 import json
 import re
-from datetime import datetime, timedelta
+from datetime import datetime
 from dotenv import load_dotenv
 from mcstatus import JavaServer
 import discord
@@ -63,15 +63,15 @@ async def query(address):
 
 
 #############################################
-# EMBED BUILDER (con UTC-3)
+# EMBED BUILDER (con UTC)
 #############################################
 
 def build_embed(address, status):
-    from datetime import datetime, timedelta
+    from datetime import datetime
 
     # Hora UTC-3
     utc_now = datetime.utcnow()
-    utc_minus3 = utc_now - timedelta(hours=3)
+    
 
     # Color premium púrpura
     premium_color = discord.Color.from_rgb(120, 86, 255)
@@ -83,7 +83,7 @@ def build_embed(address, status):
         title="🌌 Estado del Servidor",
         description=f"**IP:** `{address}`\n{separator}",
         colour=premium_color,
-        timestamp=utc_minus3
+        timestamp=utc_now
     )
 
     # -------------------------
@@ -95,7 +95,7 @@ def build_embed(address, status):
             value=f"No responde o está apagado.\n{separator}",
             inline=False
         )
-        embed.set_footer(text="Actualizado • UTC-3")
+        embed.set_footer(text="Actualizado • UTC")
         return embed
 
     # =========================
@@ -152,7 +152,7 @@ def build_embed(address, status):
         inline=True
     )
 
-    embed.set_footer(text="Actualizado • UTC-3")
+    embed.set_footer(text="Actualizado • UTC")
 
     return embed
 
@@ -266,9 +266,10 @@ async def setchannel(interaction: discord.Interaction, channel: discord.TextChan
 # RUN
 #############################################
 
-if not DISCORD_TOKEN:
+if not os.getenv("DISCORD_TOKEN"): # <- Verificar directamente la variable de entorno
     raise RuntimeError("Falta DISCORD_TOKEN en .env")
 
-keep_alive()
+keep_alive() 
 
-bot.run(DISCORD_TOKEN)
+# Usar os.getenv() para correr el bot, no la variable local
+bot.run(os.getenv("DISCORD_TOKEN"))
