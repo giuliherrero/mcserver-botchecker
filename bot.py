@@ -1,4 +1,5 @@
 import os
+from keep_alive import keep_alive
 import json
 import re
 from datetime import datetime, timedelta
@@ -28,6 +29,7 @@ tree = app_commands.CommandTree(bot)
 #############################################
 # UTILS
 #############################################
+
 
 # Remover códigos de color de Minecraft (ej: §a, §l, etc.)
 def strip_minecraft_colors(text):
@@ -266,5 +268,7 @@ async def setchannel(interaction: discord.Interaction, channel: discord.TextChan
 
 if not DISCORD_TOKEN:
     raise RuntimeError("Falta DISCORD_TOKEN en .env")
+
+keep_alive()
 
 bot.run(DISCORD_TOKEN)
