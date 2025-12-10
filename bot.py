@@ -8,6 +8,8 @@ from mcstatus import JavaServer
 import discord
 from discord.ext import tasks
 from discord import app_commands
+import tinydb
+from tinydb import TinyDB, Query
 
 #############################################
 # CONFIG
@@ -15,7 +17,7 @@ from discord import app_commands
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 UPDATE_MINUTES = int(os.getenv("UPDATE_MINUTES", "1"))
-STATE_FILE = "guilds_state.json"
+STATE_FILE = "db.json"
 
 #############################################
 # BOT SETUP
@@ -61,6 +63,36 @@ async def query(address):
     except:
         return None
 
+def get_db():
+    # TinyDB se encargará de crear y manejar el archivo STATE_FILE
+    return TinyDB(STATE_FILE)
+
+def load_state():
+    db = get_db()
+    # Cargamos todos los documentos de la DB y los convertimos a un diccionario
+    # El formato es {guild_id: {data}, ...}
+    
+    # TinyDB guarda cada guild como un documento, ej: {'gid': '12345', 'address': 'ip'}
+    
+    # Para ser compatible con tu código anterior de JSON:
+    # Retornamos un diccionario donde la clave es el ID del servidor
+    data = {}
+    for entry in db.all():
+        data[entry['gid']] = {k: v for k, v in entry.items() if k != 'gid'}
+    return data
+
+def save_state(state):
+    db = get_db()
+    db.truncate() # Borramos todo para escribir el nuevo estado completo (simplificación)
+    
+    # Escribimos cada guild como un documento en la DB
+    for gid, data in state.items():
+        doc = {'gid': gid} # La clave 'gid' es necesaria para TinyDB
+        doc.update(data)
+        db.insert(doc)
+    
+    # Cerrar la conexión
+    db.close()
 
 #############################################
 # EMBED BUILDER (con UTC)

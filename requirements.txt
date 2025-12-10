@@ -1,3 +1,5 @@
 discord.py>=2.3.0
 mcstatus>=6.1.0
 python-dotenv
+flask
+tinydb
