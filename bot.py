@@ -14,7 +14,7 @@ from discord import app_commands
 #############################################
 load_dotenv()
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
-UPDATE_MINUTES = int(os.getenv("UPDATE_MINUTES", "5"))
+UPDATE_MINUTES = int(os.getenv("UPDATE_MINUTES", "1"))
 STATE_FILE = "guilds_state.json"
 
 #############################################
@@ -144,13 +144,16 @@ def build_embed(address, status):
     # =========================
     #        JUGADORES
     # =========================
-    online = getattr(status.players, "online", "?")
+    # Definimos online y maxp aquí, antes de usarlas
+    online = getattr(status.players, "online", 0) # Si no hay valor, asumimos 0
     maxp = getattr(status.players, "max", "?")
+    
     embed.add_field(
         name="👥 Jugadores",
         value=f"**{online}** / {maxp}",
         inline=True
     )
+    
 
     embed.set_footer(text="Actualizado • UTC")
 
@@ -169,6 +172,38 @@ async def update_loop():
     await bot.wait_until_ready()
 
     state = load_state()
+
+    # --- 1. Obtener la IP principal para el estado del bot ---
+    # Asumiremos la IP del primer servidor configurado como la principal
+    # para mostrar en el estado global del bot.
+    main_address = None
+    if state:
+        first_guild_data = next(iter(state.values()), None)
+        if first_guild_data:
+            main_address = first_guild_data.get("address")
+    
+    # --- 2. Consultar el estado y establecer la actividad ---
+    if main_address:
+        status = await query(main_address)
+        
+        if status:
+            online = getattr(status.players, "online", 0)
+            maxp = getattr(status.players, "max", "?")
+            activity_text = f"Jugadores {online}/{maxp}"
+            activity_type = discord.ActivityType.watching # "Viendo" (Watching) es un buen tipo de actividad
+        else:
+            activity_text = f"Servidor {main_address} OFFLINE"
+            activity_type = discord.ActivityType.playing # "Jugando" (Playing) se usa a menudo para offline
+            
+        # Establecer la actividad del bot
+        activity = discord.Activity(name=activity_text, type=activity_type)
+        await bot.change_presence(activity=activity)
+
+    # --- 3. Bucle de actualización de embeds (código existente) ---
+    for gid, data in state.items():
+        address = data.get("address")
+        channel_id = data.get("channel_id")
+        # ... (resto del código de actualización del embed) ...
 
     for gid, data in state.items():
         address = data.get("address")
@@ -198,13 +233,25 @@ async def update_loop():
             # Actualizar mensaje existente
             try:
                 await msg.edit(embed=embed)
+            
+            # --- MANEJO DE ERROR CRÍTICO ---
+            except discord.NotFound:
+                # El mensaje fue borrado. Lo eliminamos del estado
+                # para que se cree uno nuevo en el siguiente paso (else).
+                print(f"Error: Mensaje {msg_id} no encontrado. Creando uno nuevo.")
+                data.pop("message_id", None)
+                save_state(state) # Guardar el estado sin el ID
+                continue # Saltamos a la siguiente iteración
+
             except:
-                pass
+                pass # Manejar otros errores de edición silenciosamente (como permisos)
+        
         else:
             # Crear mensaje nuevo
             sent = await channel.send(embed=embed)
             data["message_id"] = sent.id
             save_state(state)
+
 
 
 #############################################
@@ -260,6 +307,44 @@ async def setchannel(interaction: discord.Interaction, channel: discord.TextChan
     save_state(state)
 
     await interaction.response.send_message(f"Canal configurado: {channel.mention}", ephemeral=True)
+
+# ... (dentro de la sección SLASH COMMANDS) ...
+
+@tree.command(name="help", description="Muestra comandos de configuración e información.")
+async def help_command(interaction: discord.Interaction):
+    app_id = bot.application_id or bot.user.id # Obtener el ID de la aplicación
+
+    # Permisos básicos necesarios: Leer, Enviar, Embed Links (y Comandos de Aplicación)
+    permissions_value = 2147518480 # Administrador: 8, solo mensajes y comandos: 2147518480
+
+    # Generar el enlace de invitación
+    invite_url = (
+        f"https://discord.com/api/oauth2/authorize?client_id={app_id}&"
+        f"permissions={permissions_value}&scope=bot%20applications.commands"
+    )
+
+    embed = discord.Embed(
+        title="📘 Ayuda del Bot de Estado de Minecraft",
+        description="Este bot te permite monitorear el estado de un servidor de Minecraft y publicar el estado en un canal específico, actualizándolo automáticamente.",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(
+        name="⚙️ Comandos de Configuración (Admin)",
+        value=(
+            "`/setip <address>`: Configura la IP del servidor (ej: play.ejemplo.com).\n"
+            "`/setchannel <canal>`: Configura el canal para publicar el mensaje de estado (el bot lo enviará ahí).\n"
+        ),
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🔗 Enlace de Invitación",
+        value=f"[Invita el Bot a tu Servidor]({invite_url})",
+        inline=False
+    )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True) # Solo el usuario lo ve
 
 
 #############################################
