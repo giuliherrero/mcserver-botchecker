@@ -260,12 +260,25 @@ async def update_loop():
 
 @bot.event
 async def on_ready():
+    # Sincroniza los comandos slash con Discord
+    await tree.sync() 
+    
     print(f"Bot conectado como {bot.user}")
-    await tree.sync()
-    print("Comandos registrados.")
-
+    
+    # ---------------------------------------------
+    # 1. SOLUCIÓN: Ejecutar el bucle de actualización INMEDIATAMENTE
+    # ---------------------------------------------
     if not update_loop.is_running():
         update_loop.start()
+        
+        # ---------------------------------------------
+        # 2. SOLUCIÓN: Forzar la primera ejecución de inmediato
+        # ---------------------------------------------
+        # Ejecutamos la función asíncrona directamente una vez para la actualización inicial
+        # Esto actualiza el Rich Presence y el embed sin esperar el temporizador.
+        await update_loop() 
+        
+    print("Tareas iniciadas.")
 
 
 #############################################
