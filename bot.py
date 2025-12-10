@@ -137,7 +137,7 @@ def build_embed(address, status):
     )
     embed.add_field(
         name="🧩 Versión",
-        value=f"**{version_clean}**",
+        value=f"****Java: 1.18.0 — 1.21.10\nBedrock: 1.21.90 — 1.21.130****",
         inline=True
     )
 
